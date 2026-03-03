@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 # WhiteNoise将通过StaticFiles中间件集成，不需要ASGI↔WSGI转换
-from api.routers import auth, seo_pages
+from api.routers import auth, payment, seo_pages
 
 # 导入应用模块
 try:
@@ -289,6 +289,9 @@ AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")
 AMAP_JS_API_KEY = os.getenv("AMAP_JS_API_KEY", "")  # JS API key for frontend map
 AMAP_SECURITY_JS_CODE = os.getenv("AMAP_SECURITY_JS_CODE", "")
 
+# 免费次数限制
+FREE_DAILY_LIMIT = int(os.getenv("FREE_DAILY_LIMIT", "5"))
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="MeetSpot",
@@ -395,6 +398,7 @@ except Exception as e:
     # 在Vercel环境下，静态文件挂载可能失败，这是正常的
 
 app.include_router(auth.router)
+app.include_router(payment.router)
 app.include_router(seo_pages.router)
 
 @app.get("/health")
@@ -674,7 +678,7 @@ def assess_request_complexity(request: MeetSpotRequest) -> dict:
 # ==================== 会面点推荐接口 ====================
 
 @app.post("/api/find_meetspot")
-async def find_meetspot(request: MeetSpotRequest):
+async def find_meetspot(request: MeetSpotRequest, raw_request: Request = None):
     """统一的会面地点推荐入口 - 智能路由
 
     根据请求复杂度自动选择最优模式：
@@ -683,9 +687,57 @@ async def find_meetspot(request: MeetSpotRequest):
     """
     start_time = time.time()
 
+    # 免费次数限制检查
+    if raw_request and FREE_DAILY_LIMIT > 0:
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.db import payment_crud
+
+            forwarded = raw_request.headers.get("x-forwarded-for")
+            client_ip = (
+                forwarded.split(",")[0].strip()
+                if forwarded
+                else (raw_request.client.host if raw_request.client else "unknown")
+            )
+
+            async with AsyncSessionLocal() as db:
+                used_today = await payment_crud.get_free_usage_today(db, client_ip)
+                if used_today >= FREE_DAILY_LIMIT:
+                    return {
+                        "success": False,
+                        "need_payment": True,
+                        "message": "今日免费次数已用完，请购买 credits 继续使用",
+                        "free_used": used_today,
+                        "free_limit": FREE_DAILY_LIMIT,
+                        "processing_time": time.time() - start_time,
+                    }
+        except Exception as e:
+            # 免费次数检查失败不阻塞主流程
+            print(f"免费次数检查异常（不影响请求）: {e}")
+
     # 并发控制：排队处理，保证每个请求都能完成
     async with _request_semaphore:
-        return await _process_meetspot_request(request, start_time)
+        result = await _process_meetspot_request(request, start_time)
+
+    # 请求成功后记录免费使用
+    if raw_request and FREE_DAILY_LIMIT > 0 and isinstance(result, dict) and result.get("success"):
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.db import payment_crud
+
+            forwarded = raw_request.headers.get("x-forwarded-for")
+            client_ip = (
+                forwarded.split(",")[0].strip()
+                if forwarded
+                else (raw_request.client.host if raw_request.client else "unknown")
+            )
+
+            async with AsyncSessionLocal() as db:
+                await payment_crud.record_free_use(db, client_ip)
+        except Exception as e:
+            print(f"记录免费使用异常: {e}")
+
+    return result
 
 
 async def _process_meetspot_request(request: MeetSpotRequest, start_time: float):
