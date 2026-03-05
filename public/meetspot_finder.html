@@ -1699,11 +1699,11 @@
         </a>
         <div class="payment-status" id="paymentStatus">
             <span class="payment-status__item">
-                免费 <span class="payment-status__value" id="psFreeRemaining">-</span>/<span id="psFreeLimit">-</span>
+                今日免费 <span class="payment-status__value" id="psFreeRemaining">1</span>/<span id="psFreeLimit">1</span>
             </span>
             <span class="payment-status__sep">|</span>
             <span class="payment-status__item">
-                Credits: <span class="payment-status__value" id="psBalance">-</span>
+                Credits: <span class="payment-status__value" id="psBalance">0</span>
             </span>
             <a class="payment-status__buy" onclick="openPaymentModal()" id="psBuyLink" style="display:none">购买</a>
         </div>
@@ -2638,7 +2638,7 @@
                     refreshPaymentStatus().then(() => {
                         const rem = parseInt(document.getElementById('psFreeRemaining').textContent);
                         if (rem === 0) {
-                            showInfo('提示', '今日免费次数已用完，下次使用需购买 credits');
+                            showInfo('提示', '今日 1 次免费已用完，可购买 credits 或明日再试');
                         }
                     });
                     setTimeout(() => {
@@ -2663,8 +2663,8 @@
 
         // ========== Payment System ==========
 
-        // Payment state
-        let _paymentState = { freeRemaining: null, freeLimit: null, balance: null };
+        // Payment state fallback keeps UI clear when status API is temporarily unavailable.
+        let _paymentState = { freeRemaining: 1, freeLimit: 1, balance: 0 };
 
         async function refreshPaymentStatus() {
             try {
@@ -2696,6 +2696,10 @@
                 updateSubmitButton();
             } catch (e) {
                 console.warn('Payment status unavailable:', e);
+                document.getElementById('psFreeRemaining').textContent = _paymentState.freeRemaining;
+                document.getElementById('psFreeLimit').textContent = _paymentState.freeLimit;
+                document.getElementById('psBalance').textContent = _paymentState.balance;
+                updateSubmitButton();
             }
         }
 
@@ -2727,8 +2731,8 @@
                 document.getElementById('pmDesc').textContent = '购买更多 credits 继续获取推荐';
                 balEl.textContent = `当前余额: ${_paymentState.balance} credits`;
             } else {
-                document.getElementById('pmTitle').textContent = '免费次数已用完';
-                document.getElementById('pmDesc').textContent = '购买 credits 继续获取推荐';
+                document.getElementById('pmTitle').textContent = '每日 1 次免费已用完';
+                document.getElementById('pmDesc').textContent = '可购买 credits 继续使用，或明日再试';
                 balEl.textContent = '';
             }
 
@@ -2891,8 +2895,8 @@
         <div class="payment-modal__icon">
             <i class='bx bx-coin-stack'></i>
         </div>
-        <div class="payment-modal__title" id="pmTitle">免费次数已用完</div>
-        <div class="payment-modal__desc" id="pmDesc">购买 credits 继续获取推荐</div>
+        <div class="payment-modal__title" id="pmTitle">每日 1 次免费已用完</div>
+        <div class="payment-modal__desc" id="pmDesc">可购买 credits 继续使用，或明日再试</div>
         <div class="payment-modal__price">10 credits = $1.00</div>
         <div class="payment-modal__balance" id="pmBalance"></div>
         <button class="payment-modal__btn-primary" id="pmBuyBtn" onclick="handleBuyCredits()">
