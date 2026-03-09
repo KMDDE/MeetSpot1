@@ -82,19 +82,20 @@ jobs:
           script: |
             const fs = require('fs');
             const output = fs.readFileSync('postmortem_output.txt', 'utf8');
-            const body = `## Postmortem Alert
-
-This PR may touch code related to past incidents. Please review:
-
-\`\`\`
-${output.substring(0, 3000)}
-\`\`\`
-
-Run locally with:
-\`\`\`bash
-python tools/postmortem_check.py --base ${{ github.event.pull_request.base.sha }}
-\`\`\`
-`;
+            const body = [
+              '## Postmortem Alert',
+              '',
+              'This PR may touch code related to past incidents. Please review:',
+              '',
+              '```',
+              output.substring(0, 3000),
+              '```',
+              '',
+              'Run locally with:',
+              '```bash',
+              'python tools/postmortem_check.py --base ${{ github.event.pull_request.base.sha }}',
+              '```',
+            ].join('\n');
 
             try {
               const { data: comments } = await github.rest.issues.listComments({
