@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main, feature]
     paths:
+      - '.github/workflows/postmortem-check.yml'
       - 'app/**'
       - 'api/**'
       - 'tools/**'
@@ -11,10 +12,12 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/postmortem-check.yml'
       - 'app/**'
       - 'api/**'
       - 'tools/**'
       - 'public/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
