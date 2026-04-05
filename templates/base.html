@@ -846,7 +846,12 @@
             href="{{ request.url.path.replace('/en/', '/').replace('/en', '/') }}"
             class="lang-switch"
             onclick="
-              document.cookie = 'lang=zh;path=/;max-age=31536000;SameSite=Lax'
+              trackEvent('language_switch', {
+                from: 'en',
+                to: 'zh',
+                label: 'zh',
+              });
+              document.cookie = 'lang=zh;path=/;max-age=31536000;SameSite=Lax';
             "
             >中文</a
           >
@@ -855,7 +860,12 @@
             href="/en{{ request.url.path }}"
             class="lang-switch"
             onclick="
-              document.cookie = 'lang=en;path=/;max-age=31536000;SameSite=Lax'
+              trackEvent('language_switch', {
+                from: 'zh',
+                to: 'en',
+                label: 'en',
+              });
+              document.cookie = 'lang=en;path=/;max-age=31536000;SameSite=Lax';
             "
             >EN</a
           >

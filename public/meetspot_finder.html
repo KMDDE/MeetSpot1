@@ -2077,8 +2077,39 @@
             hm.src = "https://hm.baidu.com/hm.js?" + cfg.baidu_tongji_id;
             document.head.appendChild(hm);
           }
+          if (cfg.ga4_measurement_id) {
+            var ga = document.createElement("script");
+            ga.async = true;
+            ga.src =
+              "https://www.googletagmanager.com/gtag/js?id=" +
+              cfg.ga4_measurement_id;
+            document.head.appendChild(ga);
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = function () {
+              dataLayer.push(arguments);
+            };
+            gtag("js", new Date());
+            gtag("config", cfg.ga4_measurement_id);
+          }
         })
         .catch(function () {});
+
+      /* Unified tracking: fires to both GA4 and Baidu Tongji */
+      function trackEvent(eventName, params) {
+        params = params || {};
+        if (typeof gtag !== "undefined") {
+          gtag("event", eventName, params);
+        }
+        if (typeof _hmt !== "undefined") {
+          _hmt.push([
+            "_trackEvent",
+            "meetspot",
+            eventName,
+            params.label || params.keyword || "",
+            params.value || 0,
+          ]);
+        }
+      }
     </script>
   </head>
   <body>
@@ -3417,15 +3448,12 @@
               requestBody.location_coords = location_coords;
             }
 
-            if (typeof _hmt !== "undefined") {
-              _hmt.push([
-                "_trackEvent",
-                "meetspot",
-                "tool_submit",
-                keywords,
-                locations.length,
-              ]);
-            }
+            trackEvent("tool_submit", {
+              keyword: keywords,
+              location_count: locations.length,
+              label: keywords,
+              value: locations.length,
+            });
 
             const _submitTime = Date.now();
             const response = await fetch("/api/find_meetspot", {
@@ -3455,15 +3483,12 @@
             ThinkingAnimator.complete(mode);
 
             if (result.success && result.html_url) {
-              if (typeof _hmt !== "undefined") {
-                _hmt.push([
-                  "_trackEvent",
-                  "meetspot",
-                  "recommendation_result",
-                  mode,
-                  Date.now() - _submitTime,
-                ]);
-              }
+              trackEvent("recommendation_result", {
+                mode: mode,
+                response_time_ms: Date.now() - _submitTime,
+                label: mode,
+                value: Date.now() - _submitTime,
+              });
               // Show mode-aware success message
               const modeKey =
                 mode === "agent"
@@ -3499,6 +3524,10 @@
             }
           } catch (error) {
             ThinkingAnimator.reset();
+            trackEvent("search_error", {
+              error_message: (error.message || "unknown").substring(0, 100),
+              label: error.message || "unknown",
+            });
             showError(_t("finder.error_request"), error.message || "");
           } finally {
             submitBtn.disabled = false;
@@ -3579,6 +3608,7 @@
       }
 
       function openPaymentModal() {
+        trackEvent("payment_modal_open", { label: "free_limit_reached" });
         const overlay = document.getElementById("paymentOverlay");
         const modal = document.getElementById("paymentModal");
         overlay.style.display = "block";
@@ -3967,6 +3997,11 @@
        */
       function toggleFinderLang() {
         const newLang = _currentLang === "zh" ? "en" : "zh";
+        trackEvent("language_switch", {
+          from: _currentLang,
+          to: newLang,
+          label: newLang,
+        });
         document.cookie = `lang=${newLang};path=/;max-age=31536000;SameSite=Lax`;
         _currentLang = newLang;
         initI18n();

@@ -469,7 +469,7 @@ class SEOContentGenerator:
                 <section class="cta-section">
                     <h2>{_t("city.cta_title")}</h2>
                     <p>{_t("city.cta_desc")}</p>
-                    <a href="/public/meetspot_finder.html" class="cta-button" data-track="cta_click" data-track-label="city_page">{_t("city.cta_btn")}</a>
+                    <a href="/public/meetspot_finder.html" class="cta-button" data-track="cta_click" data-track-label="city_{city_data.get("slug", "unknown")}">{_t("city.cta_btn")}</a>
                 </section>""",
         }
 
